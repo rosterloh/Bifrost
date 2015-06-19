@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Bifrost</string>
+    <string name="error_text">I\'m sorry.\nI wasn\'t able to retrieve real time data.</string>
+</resources>
