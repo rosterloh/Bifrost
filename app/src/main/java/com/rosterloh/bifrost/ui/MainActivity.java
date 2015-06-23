@@ -1,12 +1,17 @@
-package com.rosterloh.bifrost;
+package com.rosterloh.bifrost.ui;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -15,18 +20,25 @@ import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.ImageRequest;
-import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.tagmanager.ContainerHolder;
-import com.google.android.gms.tagmanager.DataLayer;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.DetectedActivity;
 import com.google.android.gms.tagmanager.TagManager;
+import com.rosterloh.bifrost.BifrostApplication;
+import com.rosterloh.bifrost.Constants;
+import com.rosterloh.bifrost.CustomJsonRequest;
+import com.rosterloh.bifrost.R;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.concurrent.TimeUnit;
 import java.util.Random;
+
+import static com.rosterloh.bifrost.util.LogUtils.LOGD;
+import static com.rosterloh.bifrost.util.LogUtils.LOGE;
+import static com.rosterloh.bifrost.util.LogUtils.makeLogTag;
 
 /**
  * @author Richard Osterloh <richard.osterloh.com>
@@ -35,7 +47,7 @@ import java.util.Random;
  */
 public class MainActivity extends Activity {
 
-    protected final String TAG = MainActivity.class.getName();
+    private static final String TAG = makeLogTag(MainActivity.class);
     ImageView mImageView;
     TextView mTxtDegrees, mTxtWeather, mTxtError;
 
@@ -54,6 +66,8 @@ public class MainActivity extends Activity {
             SHARED_PREFS_DAY_KEY = "day";
 
     TagManager mTagManager;
+
+    protected ActivityDetectionBroadcastReceiver mBroadcastReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,6 +92,8 @@ public class MainActivity extends Activity {
 
         // SharedPreferences setup
         mSharedPref = getPreferences(Context.MODE_PRIVATE);
+
+        mBroadcastReceiver = new ActivityDetectionBroadcastReceiver();
 
         // Picture
         if (mSharedPref.getInt(SHARED_PREFS_DAY_KEY, 0) != today) {
@@ -142,6 +158,22 @@ public class MainActivity extends Activity {
         super.onStop();
         // This will tell to Volley to cancel all the pending requests
         helper.cancel();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Register the broadcast receiver that informs this activity of the DetectedActivity
+        // object broadcast sent by the intent service.
+        LocalBroadcastManager.getInstance(this).registerReceiver(mBroadcastReceiver,
+                new IntentFilter(Constants.BROADCAST_ACTION));
+    }
+
+    @Override
+    protected void onPause() {
+        // Unregister the broadcast receiver that was registered during onResume().
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mBroadcastReceiver);
+        super.onPause();
     }
 
     /**
@@ -277,4 +309,50 @@ public class MainActivity extends Activity {
         e.printStackTrace();
     }
 
+    /**
+     * Returns a human readable String corresponding to a detected activity type.
+     */
+    public String getActivityString(int detectedActivityType) {
+        Resources resources = this.getResources();
+        switch(detectedActivityType) {
+            case DetectedActivity.IN_VEHICLE:
+                return resources.getString(R.string.in_vehicle);
+            case DetectedActivity.ON_BICYCLE:
+                return resources.getString(R.string.on_bicycle);
+            case DetectedActivity.ON_FOOT:
+                return resources.getString(R.string.on_foot);
+            case DetectedActivity.RUNNING:
+                return resources.getString(R.string.running);
+            case DetectedActivity.STILL:
+                return resources.getString(R.string.still);
+            case DetectedActivity.TILTING:
+                return resources.getString(R.string.tilting);
+            case DetectedActivity.UNKNOWN:
+                return resources.getString(R.string.unknown);
+            case DetectedActivity.WALKING:
+                return resources.getString(R.string.walking);
+            default:
+                return resources.getString(R.string.unidentifiable_activity, detectedActivityType);
+        }
+    }
+
+    /**
+     * Receiver for intents sent by DetectedActivitiesIntentService via a sendBroadcast().
+     * Receives a list of one or more DetectedActivity objects associated with the current state of
+     * the device.
+     */
+    public class ActivityDetectionBroadcastReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            ArrayList<DetectedActivity> updatedActivities =
+                    intent.getParcelableArrayListExtra(Constants.ACTIVITY_EXTRA);
+
+            String strStatus = "";
+            for(DetectedActivity thisActivity: updatedActivities){
+                strStatus +=  getActivityString(thisActivity.getType()) + thisActivity.getConfidence() + "%\n";
+            }
+            LOGD(TAG, strStatus);
+        }
+    }
 }

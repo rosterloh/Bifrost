@@ -2,7 +2,7 @@
 <resources>
     <string name="ga_trackingId">UA-53563933-3</string>
     <bool name="ga_autoActivityTracking">false</bool>
-    <screenName name="com.rosterloh.bifrost.MainActivity">
+    <screenName name="com.rosterloh.bifrost.ui.MainActivity">
         Main screen
     </screenName>
 </resources>

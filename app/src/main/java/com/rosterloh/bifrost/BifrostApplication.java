@@ -1,6 +1,8 @@
 package com.rosterloh.bifrost;
 
 import android.app.Application;
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.location.Location;
 import android.os.Bundle;
 
@@ -12,13 +14,24 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.ActivityRecognition;
+import com.google.android.gms.location.Geofence;
+import com.google.android.gms.location.GeofencingRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.tagmanager.TagManager;
 import com.google.android.gms.tagmanager.ContainerHolder;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
+import com.rosterloh.bifrost.services.DetectedActivitiesIntentService;
+import com.rosterloh.bifrost.services.GeofenceTransitionsIntentService;
+
+import java.util.ArrayList;
+import java.util.Map;
 
 import static com.rosterloh.bifrost.util.LogUtils.LOGD;
 import static com.rosterloh.bifrost.util.LogUtils.LOGE;
@@ -30,7 +43,7 @@ import static com.rosterloh.bifrost.util.LogUtils.makeLogTag;
  * @since 19/06/2015
  */
 public class BifrostApplication extends Application implements
-        ConnectionCallbacks, OnConnectionFailedListener  {
+        ConnectionCallbacks, OnConnectionFailedListener, ResultCallback<Status> {
 
     private static final String TAG = makeLogTag(BifrostApplication.class);
     protected GoogleApiClient mGoogleApiClient;
@@ -41,6 +54,8 @@ public class BifrostApplication extends Application implements
     public Tracker mTracker;
     public ContainerHolder mContainerHolder;
     public TagManager mTagManager;
+
+    protected ArrayList<Geofence> mGeofenceList;
 
     // Get the Tag Manager
     public TagManager getTagManager () {
@@ -102,8 +117,14 @@ public class BifrostApplication extends Application implements
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
+                .addApi(ActivityRecognition.API)
                 .build();
-        mGoogleApiClient.connect();
+        if (!mGoogleApiClient.isConnecting() || !mGoogleApiClient.isConnected()) {
+            mGoogleApiClient.connect();
+        }
+        // Empty list for storing geofences.
+        //mGeofenceList = new ArrayList<>();
+        //populateGeofenceList();
     }
 
     /**
@@ -136,7 +157,7 @@ public class BifrostApplication extends Application implements
      */
     public void cancel() {
         mRequestQueue.cancelAll(TAG);
-        if(mGoogleApiClient.isConnected()) {
+        if (mGoogleApiClient.isConnecting() || mGoogleApiClient.isConnected()) {
             mGoogleApiClient.disconnect();
         }
     }
@@ -179,5 +200,109 @@ public class BifrostApplication extends Application implements
      */
     public void onDisconnected() {
         LOGD(TAG, "Disconnected");
+    }
+
+    @Override
+    public void onResult(Status status) {
+        if (status.isSuccess()) {
+            LOGD(TAG, "Successfully added activity detection.");
+        } else {
+            LOGE(TAG, "Error adding or removing activity detection: " + status.getStatusMessage());
+        }
+    }
+
+    private PendingIntent getActivityDetectionPendingIntent() {
+        Intent intent = new Intent(this, DetectedActivitiesIntentService.class);
+
+        // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when calling
+        // requestActivityUpdates() and removeActivityUpdates().
+        return PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
+    public void requestActivityUpdates() {
+        if (!mGoogleApiClient.isConnected()) {
+            LOGE(TAG, getString(R.string.not_connected));
+            return;
+        }
+        ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(
+            mGoogleApiClient,
+            Constants.DETECTION_INTERVAL_IN_MILLISECONDS,
+            getActivityDetectionPendingIntent()
+        ).setResultCallback(this);
+    }
+
+    public void removeActivityUpdates() {
+        if (!mGoogleApiClient.isConnected()) {
+            LOGE(TAG, getString(R.string.not_connected));
+            return;
+        }
+        // Remove all activity updates for the PendingIntent that was used to request activity
+        // updates.
+        ActivityRecognition.ActivityRecognitionApi.removeActivityUpdates(
+            mGoogleApiClient,
+            getActivityDetectionPendingIntent()
+        ).setResultCallback(this);
+    }
+
+    public void populateGeofenceList() {
+        for (Map.Entry<String, LatLng> entry : Constants.MY_LANDMARKS.entrySet()) {
+
+            mGeofenceList.add(new Geofence.Builder()
+                // Set the request ID of the geofence. This is a string to identify this
+                // geofence.
+                .setRequestId(entry.getKey())
+
+                // Set the circular region of this geofence.
+                .setCircularRegion(
+                        entry.getValue().latitude,
+                        entry.getValue().longitude,
+                        Constants.GEOFENCE_RADIUS_IN_METERS
+                )
+
+                // Set the expiration duration of the geofence. This geofence gets automatically
+                // removed after this period of time.
+                .setExpirationDuration(Constants.GEOFENCE_EXPIRATION_IN_MILLISECONDS)
+
+                // Set the transition types of interest. Alerts are only generated for these
+                // transition. We track entry and exit transitions in this sample.
+                .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT)
+
+                // Create the geofence.
+                .build());
+        }
+    }
+
+    private PendingIntent getGeofencePendingIntent() {
+        Intent intent = new Intent(this, GeofenceTransitionsIntentService.class);
+        // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when calling addgeoFences()
+        return PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
+    public void addGeofences() {
+        if (!mGoogleApiClient.isConnected()) {
+            LOGE(TAG, getString(R.string.not_connected));
+            return;
+        }
+
+        try {
+            LocationServices.GeofencingApi.addGeofences(
+                mGoogleApiClient,
+                // The GeofenceRequest object.
+                getGeofencingRequest(),
+                // A pending intent that that is reused when calling removeGeofences(). This
+                // pending intent is used to generate an intent when a matched geofence
+                // transition is observed.
+                getGeofencePendingIntent()
+            ).setResultCallback(this); // Result processed in onResult().
+        } catch (SecurityException securityException) {
+            // Catch exception generated if the app does not use ACCESS_FINE_LOCATION permission.
+        }
+    }
+
+    private GeofencingRequest getGeofencingRequest() {
+        GeofencingRequest.Builder builder = new GeofencingRequest.Builder();
+        builder.setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER);
+        builder.addGeofences(mGeofenceList);
+        return builder.build();
     }
 }
