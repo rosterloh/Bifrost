@@ -7,7 +7,6 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -16,11 +15,17 @@ import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.ImageRequest;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.tagmanager.ContainerHolder;
+import com.google.android.gms.tagmanager.DataLayer;
+import com.google.android.gms.tagmanager.TagManager;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Calendar;
+import java.util.concurrent.TimeUnit;
 import java.util.Random;
 
 /**
@@ -30,10 +35,11 @@ import java.util.Random;
  */
 public class MainActivity extends Activity {
 
+    protected final String TAG = MainActivity.class.getName();
     ImageView mImageView;
     TextView mTxtDegrees, mTxtWeather, mTxtError;
 
-    MarsWeather helper = MarsWeather.getInstance();
+    BifrostApplication helper = BifrostApplication.getInstance();
     int today = Calendar.getInstance().get(Calendar.DAY_OF_MONTH);
     int mainColor = Color.parseColor("#FF5722");
     SharedPreferences mSharedPref;
@@ -47,10 +53,18 @@ public class MainActivity extends Activity {
             SHARED_PREFS_IMG_KEY = "img",
             SHARED_PREFS_DAY_KEY = "day";
 
+    TagManager mTagManager;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Make sure that Analytics tracking has started
+        ((BifrostApplication) getApplication()).startTracking();
+
+        // Load the TagManager container
+        loadGTMContainer();
 
         // Views setup
         mImageView = (ImageView) findViewById(R.id.main_bg);
@@ -64,7 +78,6 @@ public class MainActivity extends Activity {
 
         // SharedPreferences setup
         mSharedPref = getPreferences(Context.MODE_PRIVATE);
-
 
         // Picture
         if (mSharedPref.getInt(SHARED_PREFS_DAY_KEY, 0) != today) {
@@ -85,6 +98,43 @@ public class MainActivity extends Activity {
         // Weather data
         loadWeatherData();
 
+    }
+
+    // Load a TagManager container
+    public void loadGTMContainer () {
+        // Get the TagManager
+        mTagManager = ((BifrostApplication) getApplication()).getTagManager();
+
+        // Enable verbose logging
+        mTagManager.setVerboseLoggingEnabled(true);
+/*
+        // Load the container
+        PendingResult pending =
+                mTagManager.loadContainerPreferFresh("GTM-123456",
+                        R.raw.gtm_default);
+
+        // Define the callback to store the loaded container
+        pending.setResultCallback(new ResultCallback<ContainerHolder>() {
+            @Override
+            public void onResult(ContainerHolder containerHolder) {
+
+                // If unsuccessful, return
+                if (!containerHolder.getStatus().isSuccess()) {
+                    // Deal with failure
+                    return;
+                }
+
+                // Manually refresh the container holder
+                // Can only do this once every 15 minutes or so
+                containerHolder.refresh();
+
+                // Set the container holder, only want one per running app
+                // We can retrieve it later as needed
+                ((BifrostApplication) getApplication()).setContainerHolder(
+                        containerHolder);
+
+            }
+        }, 2, TimeUnit.SECONDS);*/
     }
 
     @Override
@@ -123,7 +173,7 @@ public class MainActivity extends Activity {
                             SharedPreferences.Editor editor = mSharedPref.edit();
                             editor.putInt(SHARED_PREFS_DAY_KEY, today);
                             editor.putString(SHARED_PREFS_IMG_KEY, imageUrl);
-                            editor.commit();
+                            editor.apply();
 
                             // and finally load it
                             loadImg(imageUrl);

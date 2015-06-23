@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ga_trackingId">UA-53563933-3</string>
+    <bool name="ga_autoActivityTracking">false</bool>
+    <screenName name="com.rosterloh.bifrost.MainActivity">
+        Main screen
+    </screenName>
+</resources>
