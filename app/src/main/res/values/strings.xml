@@ -2,10 +2,18 @@
     <string name="app_name">Bifrost</string>
     <string name="error_text">I\'m sorry.\nI wasn\'t able to retrieve real time data.</string>
 
+    <!-- Transition type strings -->
+    <string name="geofence_transition_entered">Entered</string>
+    <string name="geofence_transition_exited">Exited</string>
+    <string name="unknown_geofence_transition">Unknown Transition</string>
+
+    <!-- Error strings -->
+    <string name="not_connected">GoogleApiClient no yet connected. Try again.</string>
     <string name="geofence_not_available">Geofence service is not available now</string>
     <string name="geofence_too_many_geofences">Your app has registered too many geofences</string>
     <string name="geofence_too_many_pending_intents">You have provided too many PendingIntents to the addGeofences() call</string>
     <string name="unknown_geofence_error">Unknown error: the Geofence service is not available now</string>
+    <string name="geofence_transition_invalid_type">Geofence transition error: invalid transition type %1$d</string>
 
     <string name="in_vehicle">In a vehicle</string>
     <string name="on_bicycle">On a bicycle</string>
@@ -16,5 +24,4 @@
     <string name="unknown">Unknown activity</string>
     <string name="walking">Walking</string>
     <string name="unidentifiable_activity">Unidentifiable activity: %1$d</string>
-    <string name="not_connected">GoogleApiClient not yet connected. Try again.</string>
 </resources>

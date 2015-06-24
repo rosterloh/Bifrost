@@ -11,6 +11,7 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.LocalBroadcastManager;
 import android.view.View;
 import android.widget.ImageView;
@@ -50,6 +51,7 @@ public class MainActivity extends Activity {
     private static final String TAG = makeLogTag(MainActivity.class);
     ImageView mImageView;
     TextView mTxtDegrees, mTxtWeather, mTxtError;
+    FloatingActionButton mFab;
 
     BifrostApplication helper = BifrostApplication.getInstance();
     int today = Calendar.getInstance().get(Calendar.DAY_OF_MONTH);
@@ -85,6 +87,12 @@ public class MainActivity extends Activity {
         mTxtDegrees = (TextView) findViewById(R.id.degrees);
         mTxtWeather = (TextView) findViewById(R.id.weather);
         mTxtError = (TextView) findViewById(R.id.error);
+        mFab = (FloatingActionButton) findViewById(R.id.fab);
+        mFab.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                LOGD(TAG, "FAB clicked");
+            }
+        });
 
         // Font
         mTxtDegrees.setTypeface(Typeface.createFromAsset(getAssets(), "fonts/Lato-light.ttf"));
