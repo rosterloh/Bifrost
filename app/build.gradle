@@ -63,7 +63,7 @@ dependencies {
     // Include libraries checked into the libs directory.
     compile fileTree(include: ['*.jar'], dir: 'libs')
 
-    // Google Play services split client libs.
+    // Google Play services split client libs. @see https://developers.google.com/android/guides/setup
     compile "com.google.android.gms:play-services-analytics:${google_play_services_client_library_version}"
     compile "com.google.android.gms:play-services-location:${google_play_services_client_library_version}"
     compile "com.google.android.gms:play-services-maps:${google_play_services_client_library_version}"
